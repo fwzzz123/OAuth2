@@ -1,13 +1,17 @@
+// src/main/java/org/example/authorizationserver/AuthorizationServerApplication.java
 package org.example.authorizationserver;
 
+import org.mybatis.spring.annotation.MapperScan;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
-// 标记为 Spring Boot 应用，开启自动配置、包扫描
+/**
+ * OAuth2 授权服务器启动类
+ */
 @SpringBootApplication
+@MapperScan("org.example.authorizationserver.mapper")
 public class AuthorizationServerApplication {
     public static void main(String[] args) {
-        // 启动 Spring Boot
         SpringApplication.run(AuthorizationServerApplication.class, args);
     }
 }
