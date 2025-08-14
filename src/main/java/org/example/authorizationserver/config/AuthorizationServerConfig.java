@@ -1,6 +1,7 @@
 // src/main/java/org/example/authorizationserver/config/AuthorizationServerConfig.java
 package org.example.authorizationserver.config;
-
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
 import com.nimbusds.jose.jwk.JWKSet;
 import com.nimbusds.jose.jwk.RSAKey;
 import com.nimbusds.jose.jwk.source.ImmutableJWKSet;
@@ -24,6 +25,8 @@ import org.springframework.security.oauth2.server.authorization.config.annotatio
 import org.springframework.security.oauth2.server.authorization.config.annotation.web.configurers.OAuth2AuthorizationServerConfigurer;
 import org.springframework.security.oauth2.server.authorization.settings.AuthorizationServerSettings;
 import org.springframework.security.oauth2.server.authorization.settings.ClientSettings;
+import org.springframework.security.oauth2.server.authorization.token.JwtEncodingContext;
+import org.springframework.security.oauth2.server.authorization.token.OAuth2TokenCustomizer;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.LoginUrlAuthenticationEntryPoint;
 import org.springframework.security.web.util.matcher.MediaTypeRequestMatcher;
@@ -32,7 +35,9 @@ import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 import java.security.interfaces.RSAPrivateKey;
 import java.security.interfaces.RSAPublicKey;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 /**
  * OAuth2 授权服务器配置
@@ -83,8 +88,8 @@ public class AuthorizationServerConfig {
                 .clientAuthenticationMethod(ClientAuthenticationMethod.CLIENT_SECRET_BASIC)
                 .authorizationGrantType(AuthorizationGrantType.AUTHORIZATION_CODE)
                 .authorizationGrantType(AuthorizationGrantType.REFRESH_TOKEN)
-                .redirectUri("https://www.baidu.com")
-                .postLogoutRedirectUri("https://www.baidu.com")
+                .redirectUri("https://localhost:8443/login/oauth2/code/oidc-client")
+                .postLogoutRedirectUri("https://localhost:8443/explain/hello")
                 .scope(OidcScopes.OPENID)
                 .scope(OidcScopes.PROFILE)
                 .scope("read")
@@ -129,4 +134,27 @@ public class AuthorizationServerConfig {
     public AuthorizationServerSettings authorizationServerSettings() {
         return AuthorizationServerSettings.builder().build();
     }
+
+    /**
+     * 【新增配置】
+     * 自定义 JWT，将用户的权限（角色）添加到 Token 中。
+     * 当客户端（资源服务器）收到此 JWT 后，就可以解析出这些权限信息。
+     * @return OAuth2TokenCustomizer
+     */
+    @Bean
+    public OAuth2TokenCustomizer<JwtEncodingContext> jwtTokenCustomizer() {
+        return (context) -> {
+            // 检查上下文类型是否为 JWT
+            if (context.getTokenType().getValue().equals("access_token")) {
+                Authentication principal = context.getPrincipal();
+                // 从认证主体中获取权限
+                Set<String> authorities = principal.getAuthorities().stream()
+                        .map(GrantedAuthority::getAuthority)
+                        .collect(Collectors.toSet());
+                // 将权限集合添加到 JWT 的 "authorities" claim 中
+                context.getClaims().claim("authorities", authorities);
+            }
+        };
+    }
+
 }
