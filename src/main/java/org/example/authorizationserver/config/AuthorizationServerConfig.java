@@ -89,7 +89,9 @@ public class AuthorizationServerConfig {
                 .authorizationGrantType(AuthorizationGrantType.AUTHORIZATION_CODE)
                 .authorizationGrantType(AuthorizationGrantType.REFRESH_TOKEN)
                 .redirectUri("https://localhost:8443/login/oauth2/code/oidc-client")
-                .postLogoutRedirectUri("https://localhost:8443/explain/hello")
+                // 新增 Postman 的回调地址
+                .redirectUri("https://oauth.pstmn.io/v1/callback")
+                .postLogoutRedirectUri("https://frp-dog.com:26390/")
                 .scope(OidcScopes.OPENID)
                 .scope(OidcScopes.PROFILE)
                 .scope("read")
