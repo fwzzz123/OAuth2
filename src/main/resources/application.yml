@@ -1,5 +1,12 @@
 server:
   port: 9000  # 授权服务器端口，避免和其他服务冲突
+  # 【新增】告诉 Spring Boot 采纳来自 Nginx 代理的转发头
+  forward-headers-strategy: NATIVE
+#  ssl:
+#    enabled: true
+#    key-store-type: JKS
+#    key-store-password: 123456 # 与 GasWellPrediction 中的密码保持一致
+#    key-store: classpath:boothttps.jks # 指向你刚刚复制过来的证书文件
 
 spring:
   application:

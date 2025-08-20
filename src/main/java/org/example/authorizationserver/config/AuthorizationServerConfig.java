@@ -30,6 +30,7 @@ import org.springframework.security.oauth2.server.authorization.token.OAuth2Toke
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.LoginUrlAuthenticationEntryPoint;
 import org.springframework.security.web.util.matcher.MediaTypeRequestMatcher;
+import org.springframework.web.filter.ForwardedHeaderFilter;
 
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
@@ -46,39 +47,119 @@ import java.util.stream.Collectors;
 @EnableWebSecurity
 public class AuthorizationServerConfig {
 
+
+    /**
+     * 【新增】
+     * 注册一个 ForwardedHeaderFilter Bean。
+     * 这个过滤器会解析 Nginx 发送过来的 X-Forwarded-* 请求头，
+     * 并将这些信息更新到 HttpServletRequest 对象中。
+     * 这是让 Spring 在反向代理后能够正确生成绝对路径 URL (包含正确的协议、主机和端口) 的最可靠方法。
+     */
+    @Bean
+    public ForwardedHeaderFilter forwardedHeaderFilter() {
+        return new ForwardedHeaderFilter();
+    }
+    /**
+     * 【最终解决方案 - 链 1】
+     * 此过滤器链仅负责处理 OAuth2 相关的端点。
+     * 它的优先级更高 (@Order(1))。
+     */
     @Bean
     @Order(1)
     public SecurityFilterChain authorizationServerSecurityFilterChain(HttpSecurity http)
             throws Exception {
+        // 1. 应用 Spring Authorization Server 的默认安全配置
         OAuth2AuthorizationServerConfiguration.applyDefaultSecurity(http);
         http.getConfigurer(OAuth2AuthorizationServerConfigurer.class)
-                .oidc(Customizer.withDefaults()); // Enable OpenID Connect 1.0
+                .oidc(Customizer.withDefaults()); // 启用 OpenID Connect 1.0
 
         http
+                // 2. 当 OAuth2 相关端点需要认证时，重定向到 /login
                 .exceptionHandling((exceptions) -> exceptions
-                        .defaultAuthenticationEntryPointFor(
-                                new LoginUrlAuthenticationEntryPoint("/login"),
-                                new MediaTypeRequestMatcher(MediaType.TEXT_HTML)
+                        .authenticationEntryPoint(
+                                new LoginUrlAuthenticationEntryPoint("/login")
                         )
                 )
+                // 3. 配置资源服务器（API）接受JWT令牌进行认证
                 .oauth2ResourceServer((resourceServer) -> resourceServer
                         .jwt(Customizer.withDefaults()));
 
         return http.build();
     }
 
+    /**
+     * 【最终解决方案 - 链 2】
+     * 此过滤器链负责处理所有其他请求，并提供默认的登录页面。
+     * 它的优先级较低 (@Order(2))。
+     */
     @Bean
     @Order(2)
     public SecurityFilterChain defaultSecurityFilterChain(HttpSecurity http)
             throws Exception {
         http
+                // 1. 保护所有请求，要求用户必须被认证
                 .authorizeHttpRequests((authorize) -> authorize
                         .anyRequest().authenticated()
                 )
+                // 2. 【重要】启用表单登录。这个配置会自动创建 /login 端点并提供一个默认的登录页面。
+                //    它也能正确处理登录成功后跳转回原始请求页面的逻辑。
                 .formLogin(Customizer.withDefaults());
 
         return http.build();
     }
+
+//    @Bean
+//    @Order(1)
+//    public SecurityFilterChain authorizationServerSecurityFilterChain(HttpSecurity http)
+//            throws Exception {
+//        // 1. 应用 Spring Authorization Server 的默认配置
+//        OAuth2AuthorizationServerConfiguration.applyDefaultSecurity(http);
+//        http.getConfigurer(OAuth2AuthorizationServerConfigurer.class)
+//                .oidc(Customizer.withDefaults()); // Enable OpenID Connect 1.0
+//
+//        http
+//                // 2. 配置异常处理，对于未认证的请求，重定向到登录页
+//                .exceptionHandling((exceptions) -> exceptions
+//                        .defaultAuthenticationEntryPointFor(
+//                                //开发环境
+////                                new LoginUrlAuthenticationEntryPoint("/login"),
+//                                // 生产环境
+//                                new LoginUrlAuthenticationEntryPoint("/auth/login"),
+//                                new MediaTypeRequestMatcher(MediaType.TEXT_HTML)
+//                        )
+//                )
+//                // 3. 配置资源服务器（API）的JWT验证
+//                .oauth2ResourceServer((resourceServer) -> resourceServer
+//                        .jwt(Customizer.withDefaults()));
+//        // 4. 【新增】将 formLogin 和其他所有请求的授权规则也加入到这个链中
+//        http
+//                .authorizeHttpRequests(authorize -> authorize
+//                        // 允许所有人访问登录页面，防止重定向循环
+//                        //开发环境
+////                        .requestMatchers("/login").permitAll()
+//                        //生产环境
+//                        .requestMatchers("/auth/login").permitAll()
+//                        // 其他所有请求都需要认证
+//                        .anyRequest().authenticated()
+//                )
+//                // 使用默认的表单登录
+//                .formLogin(Customizer.withDefaults());
+//
+//        return http.build();
+//    }
+
+//    @Bean
+//    @Order(2)
+//    public SecurityFilterChain defaultSecurityFilterChain(HttpSecurity http)
+//            throws Exception {
+//        http
+//                .authorizeHttpRequests((authorize) -> authorize
+//                        .anyRequest().authenticated()
+//                )
+//                .formLogin(Customizer.withDefaults());
+//
+//        return http.build();
+//    }
 
     @Bean
     public RegisteredClientRepository registeredClientRepository() {
@@ -134,7 +215,13 @@ public class AuthorizationServerConfig {
 
     @Bean
     public AuthorizationServerSettings authorizationServerSettings() {
-        return AuthorizationServerSettings.builder().build();
+//        开发环境
+          return AuthorizationServerSettings.builder().build();
+
+//        部署环境
+//        return AuthorizationServerSettings.builder()
+//                .issuer("https://frp-dog.com:26390/")
+//                .build();
     }
 
     /**
