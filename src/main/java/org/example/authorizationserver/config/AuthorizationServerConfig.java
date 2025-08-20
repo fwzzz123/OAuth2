@@ -59,16 +59,13 @@ public class AuthorizationServerConfig {
     public ForwardedHeaderFilter forwardedHeaderFilter() {
         return new ForwardedHeaderFilter();
     }
-    /**
-     * 【最终解决方案 - 链 1】
-     * 此过滤器链仅负责处理 OAuth2 相关的端点。
-     * 它的优先级更高 (@Order(1))。
-     */
+
     @Bean
     @Order(1)
     public SecurityFilterChain authorizationServerSecurityFilterChain(HttpSecurity http)
             throws Exception {
         // 1. 应用 Spring Authorization Server 的默认安全配置
+        //    此过滤器链仅负责处理 OAuth2 相关的端点 (例如 /oauth2/authorize)
         OAuth2AuthorizationServerConfiguration.applyDefaultSecurity(http);
         http.getConfigurer(OAuth2AuthorizationServerConfigurer.class)
                 .oidc(Customizer.withDefaults()); // 启用 OpenID Connect 1.0
@@ -88,21 +85,20 @@ public class AuthorizationServerConfig {
     }
 
     /**
-     * 【最终解决方案 - 链 2】
-     * 此过滤器链负责处理所有其他请求，并提供默认的登录页面。
-     * 它的优先级较低 (@Order(2))。
+     * 【核心修改】
+     * 我们重新引入第二个 SecurityFilterChain，专门用于处理常规的 Web 请求，
+     * 包括提供 Spring Security 默认的登录页面。
      */
     @Bean
     @Order(2)
     public SecurityFilterChain defaultSecurityFilterChain(HttpSecurity http)
             throws Exception {
         http
-                // 1. 保护所有请求，要求用户必须被认证
+                // 1. 对所有请求进行授权检查：任何请求都需要被认证
                 .authorizeHttpRequests((authorize) -> authorize
                         .anyRequest().authenticated()
                 )
                 // 2. 【重要】启用表单登录。这个配置会自动创建 /login 端点并提供一个默认的登录页面。
-                //    它也能正确处理登录成功后跳转回原始请求页面的逻辑。
                 .formLogin(Customizer.withDefaults());
 
         return http.build();
