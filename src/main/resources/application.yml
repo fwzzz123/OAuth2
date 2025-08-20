@@ -2,6 +2,9 @@ server:
   port: 9000  # 授权服务器端口，避免和其他服务冲突
   # 【新增】告诉 Spring Boot 采纳来自 Nginx 代理的转发头
   forward-headers-strategy: NATIVE
+#  生产环境配置
+#  servlet:
+#    context-path: /auth
 #  ssl:
 #    enabled: true
 #    key-store-type: JKS

@@ -212,12 +212,12 @@ public class AuthorizationServerConfig {
     @Bean
     public AuthorizationServerSettings authorizationServerSettings() {
 //        开发环境
-          return AuthorizationServerSettings.builder().build();
+//          return AuthorizationServerSettings.builder().build();
 
 //        部署环境
-//        return AuthorizationServerSettings.builder()
-//                .issuer("https://frp-dog.com:26390/")
-//                .build();
+        return AuthorizationServerSettings.builder()
+                .issuer("https://frp-dog.com:26390/")
+                .build();
     }
 
     /**
